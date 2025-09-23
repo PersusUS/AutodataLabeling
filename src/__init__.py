@@ -1,14 +1,14 @@
 """
 Paquete principal de AutoData Labeling.
 
-Sistema de etiquetado automático de imágenes usando DINOv2, clustering jerárquico y CLIP.
+Sistema de etiquetado automático de imágenes usando DINOv2, K-means clustering y CLIP.
 """
 
 from .models import Image, Embedding, Cluster, Label, Dataset
 from .core import (
     DatasetLoader,
     EmbeddingGenerator,
-    HierarchicalClusterer,
+    KMeansClusterer,
     ImageSelector,
     CLIPLabeler,
     ImageClassifier,
@@ -31,7 +31,7 @@ __all__ = [
     # Componentes principales
     'DatasetLoader',
     'EmbeddingGenerator',
-    'HierarchicalClusterer',
+    'KMeansClusterer',
     'ImageSelector',
     'CLIPLabeler',
     'ImageClassifier',
