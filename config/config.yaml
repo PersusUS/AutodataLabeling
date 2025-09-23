@@ -1,0 +1,84 @@
+# Configuración del Sistema AutoData Labeling
+
+# Configuración de modelos
+models:
+  dinov2:
+    model_size: "base"  # small, base, large, giant
+    device: "auto"      # auto, cpu, cuda
+    batch_size: 32
+    
+  clip:
+    model_name: "ViT-B/32"  # ViT-B/32, ViT-B/16, ViT-L/14
+    device: "auto"
+    confidence_threshold: 0.3
+    max_candidates: 10
+
+# Configuración de clustering
+clustering:
+  algorithm: "hierarchical"
+  linkage: "ward"        # ward, complete, average, single
+  metric: "euclidean"    # euclidean, cosine, manhattan
+  min_cluster_size: 3
+  n_clusters: null       # null para detección automática
+  distance_threshold: null
+
+# Configuración de selección de imágenes
+image_selection:
+  num_representatives: 3
+  diversity_threshold: 0.1
+  max_iterations: 100
+
+# Configuración de clasificación
+classification:
+  distance_metric: "euclidean"  # euclidean, cosine, manhattan
+  confidence_threshold: 0.5
+  use_centroid_distance: true
+
+# Configuración de datos
+data:
+  supported_extensions: [".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".tif", ".webp"]
+  image_size_limit_mb: 50
+  batch_size: 64
+  cache_embeddings: true
+  cache_directory: "./cache"
+
+# Configuración de logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  file_path: "./logs/autodatalabeling.log"
+  max_file_size: "10MB"
+  backup_count: 5
+  console_output: true
+
+# Configuración de performance
+performance:
+  num_workers: 4
+  prefetch_factor: 2
+  pin_memory: true
+  use_mixed_precision: false
+
+# Configuración de visualización
+visualization:
+  max_images_per_cluster: 10
+  thumbnail_size: [150, 150]
+  plot_style: "seaborn"
+  figure_size: [12, 8]
+
+# Configuración de evaluación
+evaluation:
+  metrics_to_calculate: [
+    "silhouette_score",
+    "cluster_balance",
+    "labeling_confidence",
+    "classification_accuracy"
+  ]
+  cross_validation_folds: 5
+  test_split_ratio: 0.2
+
+# Configuración de almacenamiento
+storage:
+  model_save_path: "./models"
+  results_save_path: "./results"
+  reports_save_path: "./reports"
+  auto_save: true
+  save_format: "pickle"  # pickle, json, hdf5
