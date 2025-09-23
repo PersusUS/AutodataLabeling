@@ -8,7 +8,7 @@ import time
 from ..models import Dataset, Image, Cluster
 from .dataset_loader import DatasetLoader
 from .embedding_generator import EmbeddingGenerator
-from .hierarchical_clusterer import HierarchicalClusterer
+from .kmeans_clusterer import KMeansClusterer
 from .image_selector import ImageSelector
 from .clip_labeler import CLIPLabeler
 from .image_classifier import ImageClassifier
@@ -26,7 +26,8 @@ class AutoDataLabelingPipeline:
                  embedding_model_size: str = "base",
                  num_representatives: int = 3,
                  clip_model: str = "ViT-B/32",
-                 clustering_linkage: str = "ward",
+                 n_clusters: int = 8,
+                 kmeans_init: str = "k-means++",
                  device: str = "auto"):
         """
         Inicializa el pipeline de etiquetado automático.
@@ -35,7 +36,8 @@ class AutoDataLabelingPipeline:
             embedding_model_size: Tamaño del modelo DINOv2 ("small", "base", "large", "giant")
             num_representatives: Número de imágenes representativas por cluster
             clip_model: Modelo CLIP a usar para etiquetado
-            clustering_linkage: Método de enlace para clustering jerárquico
+            n_clusters: Número de clusters para K-means
+            kmeans_init: Método de inicialización para K-means ("k-means++", "random")
             device: Dispositivo a usar ("cpu", "cuda", "auto")
         """
         # Inicializar componentes
@@ -44,8 +46,9 @@ class AutoDataLabelingPipeline:
             model_size=embedding_model_size,
             device=device
         )
-        self.clusterer = HierarchicalClusterer(
-            linkage=clustering_linkage,
+        self.clusterer = KMeansClusterer(
+            n_clusters=n_clusters,
+            init=kmeans_init,
             min_cluster_size=3
         )
         self.image_selector = ImageSelector(

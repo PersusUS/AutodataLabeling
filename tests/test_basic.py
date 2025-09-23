@@ -6,7 +6,7 @@ import pytest
 from pathlib import Path
 import numpy as np
 from src.models import Image, Embedding, Cluster, Label, Dataset
-from src.core import DatasetLoader, EmbeddingGenerator, HierarchicalClusterer
+from src.core import DatasetLoader, EmbeddingGenerator, KMeansClusterer
 
 
 class TestModels:
@@ -101,16 +101,18 @@ class TestCore:
         assert generator.device == "cpu"
         assert not generator._is_initialized
     
-    def test_hierarchical_clusterer_init(self):
-        """Test inicialización del HierarchicalClusterer."""
-        clusterer = HierarchicalClusterer(
-            linkage="ward",
+    def test_kmeans_clusterer_init(self):
+        """Test inicialización del KMeansClusterer."""
+        clusterer = KMeansClusterer(
+            n_clusters=8,
+            init="k-means++",
             min_cluster_size=5
         )
         
-        assert clusterer.linkage == "ward"
+        assert clusterer.n_clusters == 8
+        assert clusterer.init == "k-means++"
         assert clusterer.min_cluster_size == 5
-        assert not clusterer._is_fitted
+        assert not clusterer.fitted
 
 
 class TestUtils:
