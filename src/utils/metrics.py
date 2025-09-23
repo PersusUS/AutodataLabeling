@@ -14,7 +14,7 @@ class MetricsCalculator:
     @staticmethod
     def calculate_clustering_metrics(clusters: List[Cluster]) -> Dict[str, float]:
         """
-        Calcula métricas de calidad del clustering.
+        Calcula métricas de calidad del clustering K-means.
         
         Args:
             clusters: Lista de clusters
@@ -39,7 +39,15 @@ class MetricsCalculator:
         # Coeficiente de variación (medida de balance)
         cv_cluster_size = std_cluster_size / avg_cluster_size if avg_cluster_size > 0 else 0
         
-        # Métricas de cohesión (basadas en centroides si están disponibles)
+        # Métricas específicas de K-means
+        total_inertia = sum(c.inertia for c in clusters if c.inertia is not None)
+        avg_inertia = total_inertia / num_clusters if num_clusters > 0 else 0
+        
+        # Silhouette scores individuales
+        cluster_silhouette_scores = [c.silhouette_score for c in clusters if c.silhouette_score is not None]
+        avg_silhouette_score = np.mean(cluster_silhouette_scores) if cluster_silhouette_scores else 0
+        
+        # Métricas de cohesión (basadas en centroides)
         intra_cluster_distances = []
         for cluster in clusters:
             if cluster.has_centroid and cluster.size > 1:
@@ -53,6 +61,9 @@ class MetricsCalculator:
         
         avg_intra_cluster_distance = np.mean(intra_cluster_distances) if intra_cluster_distances else 0
         
+        # WCSS (Within-Cluster Sum of Squares) - otra forma de expresar inercia
+        total_wcss = total_inertia
+        
         return {
             'num_clusters': num_clusters,
             'total_images': total_images,
@@ -62,7 +73,13 @@ class MetricsCalculator:
             'max_cluster_size': max_cluster_size,
             'cluster_size_cv': cv_cluster_size,
             'avg_intra_cluster_distance': avg_intra_cluster_distance,
-            'cluster_balance_score': 1.0 / (1.0 + cv_cluster_size)  # Menor CV = mejor balance
+            'cluster_balance_score': 1.0 / (1.0 + cv_cluster_size),  # Menor CV = mejor balance
+            # Métricas específicas de K-means
+            'total_inertia': total_inertia,
+            'avg_inertia_per_cluster': avg_inertia,
+            'avg_silhouette_score': avg_silhouette_score,
+            'total_wcss': total_wcss,
+            'inertia_per_image': total_inertia / total_images if total_images > 0 else 0
         }
     
     @staticmethod
@@ -210,6 +227,107 @@ class MetricsCalculator:
             'num_classes': len(unique_labels),
             'class_metrics': class_metrics
         }
+    
+    @staticmethod
+    def calculate_kmeans_specific_metrics(embeddings: np.ndarray, 
+                                        cluster_labels: np.ndarray,
+                                        cluster_centers: np.ndarray) -> Dict[str, float]:
+        """
+        Calcula métricas específicas para K-means.
+        
+        Args:
+            embeddings: Embeddings de todas las imágenes
+            cluster_labels: Etiquetas de cluster asignadas
+            cluster_centers: Centros de los clusters
+            
+        Returns:
+            Diccionario con métricas específicas de K-means
+        """
+        from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bouldin_score
+        
+        metrics = {}
+        
+        if len(np.unique(cluster_labels)) > 1:
+            # Silhouette Score
+            try:
+                metrics['silhouette_score'] = silhouette_score(embeddings, cluster_labels)
+            except:
+                metrics['silhouette_score'] = 0.0
+            
+            # Calinski-Harabasz Index (Variance Ratio)
+            try:
+                metrics['calinski_harabasz_score'] = calinski_harabasz_score(embeddings, cluster_labels)
+            except:
+                metrics['calinski_harabasz_score'] = 0.0
+            
+            # Davies-Bouldin Index (menor es mejor)
+            try:
+                metrics['davies_bouldin_score'] = davies_bouldin_score(embeddings, cluster_labels)
+            except:
+                metrics['davies_bouldin_score'] = float('inf')
+        else:
+            metrics['silhouette_score'] = 0.0
+            metrics['calinski_harabasz_score'] = 0.0
+            metrics['davies_bouldin_score'] = float('inf')
+        
+        # Inercia total (suma de distancias cuadráticas a centroides)
+        total_inertia = 0.0
+        for i, embedding in enumerate(embeddings):
+            cluster_id = cluster_labels[i]
+            distance_squared = np.sum((embedding - cluster_centers[cluster_id]) ** 2)
+            total_inertia += distance_squared
+        
+        metrics['total_inertia'] = total_inertia
+        metrics['avg_inertia_per_sample'] = total_inertia / len(embeddings) if len(embeddings) > 0 else 0
+        
+        # Between-cluster sum of squares (BCSS)
+        overall_centroid = np.mean(embeddings, axis=0)
+        bcss = 0.0
+        for cluster_id in np.unique(cluster_labels):
+            cluster_mask = cluster_labels == cluster_id
+            cluster_size = np.sum(cluster_mask)
+            cluster_center = cluster_centers[cluster_id]
+            bcss += cluster_size * np.sum((cluster_center - overall_centroid) ** 2)
+        
+        metrics['between_cluster_ss'] = bcss
+        
+        # Total sum of squares (TSS)
+        tss = np.sum((embeddings - overall_centroid) ** 2)
+        metrics['total_ss'] = tss
+        
+        # Ratio BCSS/TSS (mayor es mejor - indica mejor separación)
+        metrics['bcss_tss_ratio'] = bcss / tss if tss > 0 else 0
+        
+        # Ratio WCSS/TSS (menor es mejor - indica menor varianza intra-cluster)
+        metrics['wcss_tss_ratio'] = total_inertia / tss if tss > 0 else 0
+        
+        return metrics
+    
+    @staticmethod
+    def calculate_elbow_method_curve(embeddings: np.ndarray, 
+                                   k_range: range = range(1, 11)) -> Dict[int, float]:
+        """
+        Calcula la curva del método del codo para determinar k óptimo.
+        
+        Args:
+            embeddings: Embeddings para clustering
+            k_range: Rango de valores k a probar
+            
+        Returns:
+            Diccionario con k -> inercia
+        """
+        from sklearn.cluster import KMeans
+        
+        inertias = {}
+        for k in k_range:
+            if k > len(embeddings):
+                break
+            
+            kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+            kmeans.fit(embeddings)
+            inertias[k] = kmeans.inertia_
+        
+        return inertias
     
     @staticmethod
     def calculate_silhouette_score(embeddings: np.ndarray, labels: np.ndarray) -> float:

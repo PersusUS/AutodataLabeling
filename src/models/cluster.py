@@ -12,15 +12,17 @@ from .embedding import Embedding
 @dataclass
 class Cluster:
     """
-    Representa un cluster de imágenes similares.
+    Representa un cluster de imágenes similares usando K-means.
     
     Attributes:
         id: Identificador único del cluster
         images: Lista de imágenes que pertenecen al cluster
-        centroid: Vector centroide del cluster
+        centroid: Vector centroide del cluster (centro del cluster K-means)
         label: Etiqueta asignada al cluster
         confidence: Confianza de la etiqueta asignada
         representative_images: Imágenes más representativas del cluster
+        inertia: Suma de distancias cuadráticas al centroide (métricas K-means)
+        silhouette_score: Puntuación silhouette para este cluster
         metadata: Metadatos adicionales del cluster
     """
     
@@ -30,6 +32,8 @@ class Cluster:
     label: Optional[str] = None
     confidence: Optional[float] = None
     representative_images: List[Image] = field(default_factory=list)
+    inertia: Optional[float] = None
+    silhouette_score: Optional[float] = None
     metadata: Optional[dict[str, Any]] = None
     
     def __post_init__(self):
@@ -149,3 +153,40 @@ class Cluster:
         
         self.representative_images = representatives
         return representatives
+    
+    def calculate_inertia(self) -> float:
+        """
+        Calcula la inercia del cluster (suma de distancias cuadráticas al centroide).
+        
+        Returns:
+            Valor de inercia del cluster
+        """
+        if not self.has_centroid:
+            self.calculate_centroid()
+        
+        inertia = 0.0
+        for img in self.images:
+            if img.has_embedding:
+                distance_squared = np.sum((img.embedding - self.centroid) ** 2)
+                inertia += distance_squared
+        
+        self.inertia = inertia
+        return inertia
+    
+    def calculate_within_cluster_sum_of_squares(self) -> float:
+        """
+        Calcula la suma de cuadrados intra-cluster (WCSS).
+        
+        Returns:
+            Valor de WCSS del cluster
+        """
+        return self.calculate_inertia()
+    
+    def update_centroid(self, new_centroid: np.ndarray) -> None:
+        """
+        Actualiza el centroide del cluster (usado durante iteraciones de K-means).
+        
+        Args:
+            new_centroid: Nuevo vector centroide
+        """
+        self.centroid = new_centroid.copy()

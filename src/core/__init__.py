@@ -7,7 +7,7 @@ la lógica de negocio del sistema de etiquetado automático.
 
 from .dataset_loader import DatasetLoader
 from .embedding_generator import EmbeddingGenerator
-from .hierarchical_clusterer import HierarchicalClusterer
+from .kmeans_clusterer import KMeansClusterer
 from .image_selector import ImageSelector
 from .clip_labeler import CLIPLabeler
 from .image_classifier import ImageClassifier
@@ -16,7 +16,7 @@ from .autodatalabeling_pipeline import AutoDataLabelingPipeline
 __all__ = [
     'DatasetLoader',
     'EmbeddingGenerator',
-    'HierarchicalClusterer', 
+    'KMeansClusterer', 
     'ImageSelector',
     'CLIPLabeler',
     'ImageClassifier',
