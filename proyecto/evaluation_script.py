@@ -1,12 +1,13 @@
 # === evaluation.py ===
 import torch
 import numpy as np
+import random
 from torchvision import datasets, transforms
 from transformers import AutoImageProcessor, AutoModel
 import joblib
 from autolabelling_system_inferenceflow import label_new_image  # import your inference function
-from collections import Counter
 import pandas as pd
+from collections import defaultdict
 
 # ==== 1. Load pretrained DINOv2 model ====
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -19,28 +20,19 @@ model.eval()
 kmeans_model = joblib.load("kmeans_model.pkl")           # saved centroids
 cluster_label_names = joblib.load("cluster_labels.pkl")  # saved cluster names
 
-# ==== 3. Load balanced CIFAR-10 dataset (100 per class) ====
+# ==== 3. Load CIFAR-10 test dataset ====
 transform = transforms.Compose([
     transforms.Resize((256,256)),
     transforms.ToTensor(),
     transforms.Normalize(mean=processor.image_mean, std=processor.image_std)
 ])
-
 full_dataset = datasets.CIFAR10(root="./data", train=False, download=True, transform=transform)
 
-# Select 100 samples per class
-N_PER_CLASS = 100
-indices, class_counts = [], Counter()
-for idx, (_, label) in enumerate(full_dataset):
-    if class_counts[label] < N_PER_CLASS:
-        indices.append(idx)
-        class_counts[label] += 1
-    if len(indices) == 10 * N_PER_CLASS:
-        break
-
+# Pick 1000 random samples
+random.seed(42)
+indices = random.sample(range(len(full_dataset)), 1000)
 eval_dataset = torch.utils.data.Subset(full_dataset, indices)
-
-print(f"Evaluation dataset size: {len(eval_dataset)} (100 per class)")
+print(f"Evaluation dataset size: {len(eval_dataset)} (random subset)")
 
 # ==== 4. Run inference ====
 predicted_labels = []
@@ -63,11 +55,26 @@ cifar10_names = ['airplane', 'automobile', 'bird', 'cat', 'deer',
                  'dog', 'frog', 'horse', 'ship', 'truck']
 true_label_names = [cifar10_names[l] for l in true_labels]
 
+# Global accuracy
 correct = sum(pred == true for pred, true in zip(predicted_labels, true_label_names))
 accuracy = correct / len(true_label_names)
-print(f"Labelling accuracy: {accuracy:.3f}")
+print(f"\nOverall labelling accuracy: {accuracy:.3f}")
+
+# Per-class accuracy
+class_correct = defaultdict(int)
+class_total = defaultdict(int)
+
+for pred, true in zip(predicted_labels, true_label_names):
+    class_total[true] += 1
+    if pred == true:
+        class_correct[true] += 1
+
+print("\nPer-class accuracy:")
+for cls in cifar10_names:
+    acc = class_correct[cls] / class_total[cls] if class_total[cls] > 0 else 0.0
+    print(f"{cls:>10s}: {acc:.3f} ({class_correct[cls]}/{class_total[cls]})")
 
 # ==== 6. Save predictions ====
 df = pd.DataFrame({"true": true_label_names, "pred": predicted_labels})
 df.to_csv("evaluation_results.csv", index=False)
-print("Evaluation results saved to evaluation_results.csv")
+print("\nEvaluation results saved to evaluation_results.csv")
