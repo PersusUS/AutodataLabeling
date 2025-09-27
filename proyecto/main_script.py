@@ -48,20 +48,26 @@ if __name__ == "__main__":
     print("\n=== Inference Example ===")
     print(f"True Label: {cifar10_names[true_label]}")
     print(f"Predicted Cluster Label: {predicted_label}")
-    cluster_assignments = k_model.predict(all_embeddings)
-    n_clusters = len(set(cluster_assignments))
+def show_cluster_images(images, labels, cluster_id, num_images=16):
+    """Display sample images from a specific cluster."""
+    idxs = np.where(labels == cluster_id)[0]
+    if len(idxs) == 0:
+        print(f"No images found for cluster {cluster_id}.")
+        return
+    idxs = np.random.choice(idxs, size=min(num_images, len(idxs)), replace=False)
+    cols = int(np.sqrt(len(idxs)))
+    rows = int(np.ceil(len(idxs)/cols))
 
-    for cluster_id in range(n_clusters):
-        indices = np.where(cluster_assignments == cluster_id)[0]
-        if len(indices) == 0:
-            continue
+    plt.figure(figsize=(cols*2, rows*2))
+    for i, idx in enumerate(idxs):
+        img = images[idx].permute(1,2,0).numpy()
+        img = (img - img.min()) / (img.max() - img.min())
+        plt.subplot(rows, cols, i+1)
+        plt.imshow(img)
+        plt.axis('off')
+    plt.suptitle(f"Cluster {cluster_id} Samples")
+    plt.show()
 
-        example_idxs = np.random.choice(indices, size=min(10, len(indices)), replace=False)
-
-        plt.figure(figsize=(15,3))
-        for i, ex_idx in enumerate(example_idxs):
-            plt.subplot(1, len(example_idxs), i+1)
-            plt.imshow(train_images[ex_idx])  # train_images must be stored as PIL/numpy in train_flow
-            plt.axis("off")
-        plt.suptitle(f"Cluster {cluster_id} → {cluster_label_names.get(cluster_id, 'Unknown')}")
-        plt.show()
+# ==== Example usage ====
+labels=joblib.load("kmeans_labels.pkl")
+show_cluster_images(dataset, labels, cluster_id=0, num_images=16)
